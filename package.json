@@ -1,0 +1,18 @@
+{
+  "name": "num-gen",
+  "version": "1.0.0",
+  "description": "Генератор номеров — кликер",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1"
+  }
+}
