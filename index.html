@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Генератор номеров</title>
+  <style>
+    :root {
+      --bg: #0d1117; --card: #161b22; --text: #e6edf3; --accent: #58a6ff;
+      --common: #8b949e; --rare: #3fb950; --very: #d2a8ff; --leg: #f0883e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; overflow-x: hidden; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--card); position: sticky; top: 0; z-index: 100; }
+    .balance { font-weight: 700; font-size: 16px; }
+    .burger { font-size: 24px; cursor: pointer; padding: 4px 8px; }
+    .main { padding: 16px; text-align: center; min-height: calc(100vh - 120px); display: flex; flex-direction: column; justify-content: center; }
+    .rarity-label { font-size: 14px; margin-bottom: 8px; opacity: 0.9; }
+    .plate { background: #fff; color: #000; font-family: 'Courier New', monospace; font-size: 28px; font-weight: 700; padding: 12px 20px; border-radius: 8px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); letter-spacing: 2px; user-select: none; }
+    .plate .flag { font-size: 22px; }
+    .tap-zone { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; padding: 20px; }
+    .countries { display: flex; gap: 10px; justify-content: center; padding: 12px; flex-wrap: wrap; }
+    .country-btn { background: var(--card); border: 1px solid #30363d; border-radius: 12px; padding: 10px 14px; color: var(--text); cursor: pointer; font-size: 13px; }
+    .country-btn.active { border-color: var(--accent); background: #1f6feb33; }
+    .menu { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: var(--card); z-index: 200; transition: left 0.25s; overflow-y: auto; padding: 20px 0; }
+    .menu.open { left: 0; }
+    .menu a, .menu div.item { display: block; padding: 14px 20px; color: var(--text); text-decoration: none; border-bottom: 1px solid #21262d; cursor: pointer; }
+    .menu a:hover, .menu div.item:hover { background: #21262d; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 150; display: none; }
+    .overlay.show { display: block; }
+    .screen { display: none; padding: 16px; }
+    .screen.active { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .plate-card { background: var(--card); border-radius: 10px; padding: 10px; text-align: center; font-size: 13px; }
+    .plate-card .p { background: #fff; color: #000; font-family: monospace; font-weight: 700; padding: 6px; border-radius: 4px; margin-bottom: 6px; }
+    .btn { background: var(--accent); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .btn.secondary { background: #30363d; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 300; }
+    .modal.show { display: flex; }
+    .modal-box { background: var(--card); padding: 24px; border-radius: 12px; max-width: 90%; text-align: center; }
+    .task { background: var(--card); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .stat { background: var(--card); padding: 12px; border-radius: 8px; margin-bottom: 8px; }
+    .rarity-common { color: var(--common); }
+    .rarity-rare { color: var(--rare); }
+    .rarity-very_rare { color: var(--very); }
+    .rarity-legendary { color: var(--leg); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="burger" id="burger">☰</div>
+    <div class="balance" id="balance">₽ 0</div>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <div class="menu" id="menu">
+    <div class="item" data-screen="generator">1. Генератор</div>
+    <div class="item" data-screen="tasks">2. Ежедневные задания</div>
+    <div class="item" data-screen="collection">3. Коллекция</div>
+    <div class="item" data-screen="safe">4. Сейф</div>
+    <div class="item" data-screen="autosell">5. Автопродажа</div>
+    <div class="item" data-screen="upgrades">6. Улучшения</div>
+    <div class="item" data-screen="catalog">7. Каталог редкостей</div>
+    <div class="item" data-screen="stats">8. Статистика</div>
+    <div class="item" data-screen="theme">9. Тема</div>
+    <div class="item" data-screen="settings">10. Настройки</div>
+    <a href="https://t.me/num_gen" target="_blank">11. Новости в Telegram</a>
+    <div class="item" data-screen="soon">12. Скоро в игре</div>
+  </div>
+
+  <!-- ГЕНЕРАТОР -->
+  <div class="screen active" id="screen-generator">
+    <div class="tap-zone" id="tapZone">
+      <div class="rarity-label" id="rarityLabel">Нажми, чтобы сгенерировать</div>
+      <div class="plate" id="plateDisplay">
+        <span class="flag">🇷🇺</span>
+        <span id="plateText">А000АА00</span>
+      </div>
+    </div>
+    <div class="countries">
+      <button class="country-btn active" data-country="RU">🇷🇺 Россия</button>
+      <button class="country-btn" data-country="BY">🇧🇾 Беларусь</button>
+    </div>
+  </div>
+
+  <!-- ЗАДАНИЯ -->
+  <div class="screen" id="screen-tasks">
+    <h2 style="margin-bottom:12px">Ежедневные задания</h2>
+    <div id="tasksList"></div>
+  </div>
+
+  <!-- КОЛЛЕКЦИЯ -->
+  <div class="screen" id="screen-collection">
+    <h2 style="margin-bottom:12px">Коллекция</h2>
+    <div class="grid" id="collectionGrid"></div>
+  </div>
+
+  <!-- СЕЙФ -->
+  <div class="screen" id="screen-safe">
+    <h2 style="margin-bottom:12px">Сейф</h2>
+    <div class="grid" id="safeGrid"></div>
+  </div>
+
+  <!-- АВТОПРОДАЖА -->
+  <div class="screen" id="screen-autosell">
+    <h2 style="margin-bottom:12px">Автопродажа</h2>
+    <label><input type="checkbox" id="autosellEnabled"> Включить</label>
+    <div style="margin-top:12px">
+      Продавать всё ниже:
+      <select id="autosellMin">
+        <option value="rare">Редких</option>
+        <option value="very_rare">Очень редких</option>
+        <option value="legendary">Легендарных</option>
+      </select>
+    </div>
+    <button class="btn" style="margin-top:16px" id="saveAutosell">Сохранить</button>
+  </div>
+
+  <!-- УЛУЧШЕНИЯ -->
+  <div class="screen" id="screen-upgrades">
+    <h2 style="margin-bottom:12px">Улучшения</h2>
+    <div class="stat">Шанс редких +5% — 1000 ₽ <button class="btn" data-up="rare_chance">Купить</button></div>
+    <div class="stat">Скорость генерации — 800 ₽ <button class="btn" data-up="gen_speed">Купить</button></div>
+    <div class="stat">Слот сейфа — 2000 ₽ <button class="btn" data-up="safe_slot">Купить</button></div>
+  </div>
+
+  <!-- КАТАЛОГ -->
+  <div class="screen" id="screen-catalog">
+    <h2 style="margin-bottom:12px">Каталог редкостей</h2>
+    <div class="stat rarity-common">Обычный — 50 ₽ (~70%)</div>
+    <div class="stat rarity-rare">Редкий (777/555) — 500 ₽ (~20%)</div>
+    <div class="stat rarity-very_rare">Очень редкий (АМР/ЕКХ) — 5000 ₽ (~8%)</div>
+    <div class="stat rarity-legendary">Легендарный (зеркало) — 50000 ₽ (~2%)</div>
+  </div>
+
+  <!-- СТАТИСТИКА -->
+  <div class="screen" id="screen-stats">
+    <h2 style="margin-bottom:12px">Статистика</h2>
+    <div class="stat" id="statsContent"></div>
+  </div>
+
+  <!-- ТЕМА -->
+  <div class="screen" id="screen-theme">
+    <h2 style="margin-bottom:12px">Тема</h2>
+    <button class="btn" onclick="setTheme('dark')">Тёмная</button>
+    <button class="btn secondary" onclick="setTheme('blue')">Синяя</button>
+  </div>
+
+  <!-- НАСТРОЙКИ -->
+  <div class="screen" id="screen-settings">
+    <h2 style="margin-bottom:12px">Настройки</h2>
+    <button class="btn secondary" id="resetProgress">Сброс прогресса</button>
+  </div>
+
+  <!-- СКОРО -->
+  <div class="screen" id="screen-soon">
+    <h2 style="margin-bottom:12px">Скоро в игре</h2>
+    <div class="stat" style="opacity:0.5">Магазин</div>
+    <div class="stat" style="opacity:0.5">Кейсы</div>
+    <div class="stat" style="opacity:0.5">Альбом</div>
+    <div class="stat" style="opacity:0.5">Карта</div>
+  </div>
+
+  <div class="modal" id="modal">
+    <div class="modal-box">
+      <p id="modalText">Скоро откроется!</p>
+      <button class="btn" style="margin-top:12px" onclick="closeModal()">OK</button>
+    </div>
+  </div>
+
+  <script>
+    // ===== КОНФИГ =====
+    const API = window.location.origin; // на Render будет твой URL
+    // Для Capacitor потом замени на 'https://твой-сервис.onrender.com'
+
+    let userId = localStorage.getItem('userId');
+    let deviceId = localStorage.getItem('deviceId') || ('dev_' + Math.random().toString(36).slice(2));
+    localStorage.setItem('deviceId', deviceId);
+    let currentCountry = 'RU';
+    let userData = null;
+    let generating = false;
+
+    // ===== INIT =====
+    async function init() {
+      const reg = await fetch(API + '/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: deviceId, username: 'Игрок' })
+      }).then(r => r.json());
+
+      if (reg.error === 'banned') {
+        alert('Вы забанены');
+        return;
+      }
+      userId = reg.id;
+      localStorage.setItem('userId', userId);
+      await loadUser();
+    }
+
+    async function loadUser() {
+      userData = await fetch(API + '/api/user/' + userId).then(r => r.json());
+      document.getElementById('balance').textContent = '₽ ' + Math.floor(userData.balance_rub);
+      renderTasks();
+      renderCollection();
+      renderSafe();
+      renderStats();
+      document.getElementById('autosellEnabled').checked = userData.autosell?.enabled || false;
+      document.getElementById('autosellMin').value = userData.autosell?.minRarity || 'rare';
+    }
+
+    // ===== ГЕНЕРАЦИЯ =====
+    document.getElementById('tapZone').addEventListener('click', async () => {
+      if (generating) return;
+      generating = true;
+      try {
+        const res = await fetch(API + '/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, country: currentCountry })
+        }).then(r => r.json());
+
+        document.getElementById('plateText').textContent = res.plate;
+        document.getElementById('rarityLabel').innerHTML =
+          `<span class="rarity-${res.rarity}">${res.label}</span> — ${res.price} ₽` +
+          (res.sold ? ` <small>(продано +${res.earned})</small>` : '');
+        await loadUser();
+      } catch (e) {
+        console.error(e);
+      }
+      generating = false;
+    });
+
+    // Страны
+    document.querySelectorAll('.country-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.country-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentCountry = btn.dataset.country;
+      });
+    });
+
+    // Меню
+    const menu = document.getElementById('menu');
+    const overlay = document.getElementById('overlay');
+    document.getElementById('burger').onclick = () => { menu.classList.add('open'); overlay.classList.add('show'); };
+    overlay.onclick = () => { menu.classList.remove('open'); overlay.classList.remove('show'); };
+
+    document.querySelectorAll('.menu .item').forEach(item => {
+      item.onclick = () => {
+        const screen = item.dataset.screen;
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById('screen-' + screen).classList.add('active');
+        menu.classList.remove('open');
+        overlay.classList.remove('show');
+        if (screen === 'soon') showModal('Скоро откроется!');
+      };
+    });
+
+    function showModal(text) {
+      document.getElementById('modalText').textContent = text;
+      document.getElementById('modal').classList.add('show');
+    }
+    function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+    // Задания
+    function renderTasks() {
+      const list = document.getElementById('tasksList');
+      if (!userData?.tasks) return;
+      list.innerHTML = userData.tasks.map(t => `
+        <div class="task">
+          <span>${t.task_text} ${t.completed ? '✅' : ''}</span>
+          ${!t.completed ? `<button class="btn" onclick="completeTask(${t.id})">+${t.reward}</button>` : '<span>Выполнено</span>'}
+        </div>
+      `).join('');
+    }
+    async function completeTask(id) {
+      await fetch(API + '/api/tasks/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, task_id: id })
+      });
+      await loadUser();
+    }
+
+    // Коллекция
+    function renderCollection() {
+      const grid = document.getElementById('collectionGrid');
+      if (!userData?.collection) return;
+      grid.innerHTML = userData.collection.filter(c => !c.in_safe).map(c => `
+        <div class="plate-card">
+          <div class="p">${c.plate}</div>
+          <div class="rarity-${c.rarity}">${c.rarity}</div>
+          <button class="btn secondary" style="margin-top:6px;font-size:12px" onclick="sellPlate('${c.plate}')">Продать</button>
+          <button class="btn secondary" style="margin-top:4px;font-size:12px" onclick="toSafe('${c.plate}')">В сейф</button>
+        </div>
+      `).join('') || '<p>Пусто</p>';
+    }
+
+    async function sellPlate(plate) {
+      await fetch(API + '/api/sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, plate })
+      });
+      await loadUser();
+    }
+    async function toSafe(plate) {
+      await fetch(API + '/api/safe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, plate, action: 'add' })
+      });
+      await loadUser();
+    }
+
+    // Сейф
+    function renderSafe() {
+      const grid = document.getElementById('safeGrid');
+      if (!userData?.collection) return;
+      grid.innerHTML = userData.collection.filter(c => c.in_safe).map(c => `
+        <div class="plate-card">
+          <div class="p">${c.plate}</div>
+          <div class="rarity-${c.rarity}">${c.rarity}</div>
+          <button class="btn secondary" style="margin-top:6px;font-size:12px" onclick="fromSafe('${c.plate}')">Убрать</button>
+        </div>
+      `).join('') || '<p>Пусто</p>';
+    }
+    async function fromSafe(plate) {
+      await fetch(API + '/api/safe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, plate, action: 'remove' })
+      });
+      await loadUser();
+    }
+
+    // Автопродажа
+    document.getElementById('saveAutosell').onclick = async () => {
+      await fetch(API + '/api/autosell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          enabled: document.getElementById('autosellEnabled').checked,
+          minRarity: document.getElementById('autosellMin').value
+        })
+      });
+      alert('Сохранено');
+    };
+
+    // Улучшения
+    document.querySelectorAll('[data-up]').forEach(btn => {
+      btn.onclick = async () => {
+        const res = await fetch(API + '/api/upgrade', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, upgrade: btn.dataset.up })
+        }).then(r => r.json());
+        if (res.error) alert(res.error);
+        else await loadUser();
+      };
+    });
+
+    // Статистика
+    function renderStats() {
+      if (!userData) return;
+      document.getElementById('statsContent').innerHTML = `
+        Сгенерировано: ${userData.total_generated}<br>
+        Заработано: ${Math.floor(userData.total_earned)} ₽<br>
+        В коллекции: ${userData.collection?.length || 0}<br>
+        Слотов сейфа: ${userData.safe_slots}
+      `;
+    }
+
+    function setTheme(t) {
+      if (t === 'blue') {
+        document.documentElement.style.setProperty('--bg', '#0a1628');
+        document.documentElement.style.setProperty('--card', '#12253f');
+      } else {
+        document.documentElement.style.setProperty('--bg', '#0d1117');
+        document.documentElement.style.setProperty('--card', '#161b22');
+      }
+    }
+
+    document.getElementById('resetProgress').onclick = () => {
+      if (confirm('Сбросить? Это удалит device_id')) {
+        localStorage.clear();
+        location.reload();
+      }
+    };
+
+    init();
+  </script>
+</body>
+</html>
